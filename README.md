@@ -3,7 +3,7 @@
 This package allows to load and extract data from a PosgreSQL Database using simple SQL style methods. At the moment,
 it has only been tested on a Heroku Postgres Database, though it should not be hard to extended the *init* method 
 to be able to interact with other cloud or premises providers that uses PosgresSQL technology (maybe the method 
-*create_connection* will also need to be modified). It can be also use as a reference to create new interfaces to connect
+*create_connection* will also need to be modified). Also, It could be used as reference to create new interfaces to connect
 to other RDBS the same way this one is inspired on the one to connect to SQLServer located on the library berryworld.   
 
 ## Structure
