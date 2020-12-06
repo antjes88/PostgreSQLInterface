@@ -1,11 +1,15 @@
 from setuptools import find_packages, setup
 
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
 setup(
-    name='PostgreSQLInterface',
+    name='postgresqlinterface',
     packages=find_packages(include=['postgressqlinterface']),
-    version='0.0.1',
+    version='0.0.2',
     description='Library to load and extract data from a PosgreSQL Database '
                 'with Python with a simple SQL style language',
+    long_description=long_description,
     author='Antonio Benjumea',
     license='MIT',
     install_requires=[

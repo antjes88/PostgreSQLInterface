@@ -2,7 +2,7 @@ import psycopg2
 import pandas as pd
 
 
-class PosgreSQL:
+class PostgreSQL:
     """Connect and interact with a posgreSQL database"""
     def __init__(self, database_url, sslmode='require', host='HEROKU'):
         """

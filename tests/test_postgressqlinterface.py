@@ -3,7 +3,7 @@ import pandas as pd
 import datetime as dt
 import pytest
 from dotenv import load_dotenv
-from PostgresSQLInterface.postgresqlinterface import PosgreSQL
+from postgressqlinterface.postgresqlinterface import PostgreSQL
 
 
 """
@@ -16,7 +16,7 @@ env_var = os.environ['DATABASE_URL']
 
 @pytest.fixture(scope='module')
 def execute_insert_query():
-    heroku_db = PosgreSQL(env_var)
+    heroku_db = PostgreSQL(env_var)
     statement_create_table = """
                             Drop table if exists test.simple; 
                             drop schema if exists test;
@@ -53,7 +53,7 @@ def test_execute_insert_query_heroku(execute_insert_query):
 
 @pytest.fixture(scope='module')
 def update():
-    heroku_db = PosgreSQL(env_var)
+    heroku_db = PostgreSQL(env_var)
     statement_create_table = """
                             Drop table if exists test.simple; 
                             drop schema if exists test;
