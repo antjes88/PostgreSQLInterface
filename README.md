@@ -12,7 +12,7 @@ The library has an unique class that handles the relations to a database allowin
 ## Instantiate the class
 To instantiate the class to connect to a Heroku Database:
 ```
-heroku_db = PosgreSQL(database_url)
+heroku_db = PostgreSQL(database_url)
 ```
 *database_url* can be found on the section *Config Vars* inside the tab *Settings* of your Heroku app or on the 
 section *Database Credentials* of the tab *Settings* of your Heroku Datastore.
