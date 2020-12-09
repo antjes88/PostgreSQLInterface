@@ -117,7 +117,7 @@ class PostgreSQL:
         """
         This method is to update values in a table taking into account the where_identifier. It creates one UPDATE
         statement for each row in df.
-        :param table_name: name of the table to update
+        :param table_name: name of the table to update included schema
         :param df: dataframe with the data to update in the table
         :param where_identifier: list of columns to list on the where clause
         :param print_sql: boolean to indicate if sql statement must be print on python console
@@ -150,6 +150,43 @@ class PostgreSQL:
                 else:
                     statement += " '%s' " % (df.loc[i, where_identifier[j]])
             statement += '; '
+
+        if print_sql:
+            print(statement)
+
+        self.execute(statement)
+
+    def delete_from_table(self, table_name, df, print_sql=False):
+        """
+
+        :param table_name: name of the table to update included schema
+        :param df: dataframe with the columns of the table to be included on the where clause
+        :param print_sql: boolean to indicate if sql statement must be print on python console
+        :return:
+        """
+        if len(df.columns.to_list()) == 1:
+            statement = ''
+            # col = df.columns.to_list()[0]
+            # statement = 'DELETE FROM %s WHERE %s IN (' % (table_name, df.columns.to_list()[0])
+            # for value in df[col].values.tolist():
+            #     statement += " '%s'," % value
+            # statement = statement[:-1] + ')'
+        else:
+
+            nan_df = df.isna()
+            cols = df.columns.to_list()
+            statement = ''
+            for i in df.index.values.tolist():
+                statement += ' DELETE FROM %s WHERE ' % table_name
+                for j in range(0, len(cols)):
+                    if j > 0:
+                        statement += ' AND '
+                    statement += " %s = " % cols[j]
+                    if nan_df.loc[i, cols[j]]:
+                        statement += " NULL "
+                    else:
+                        statement += " '%s' " % (df.loc[i, cols[j]])
+                statement += '; '
 
         if print_sql:
             print(statement)

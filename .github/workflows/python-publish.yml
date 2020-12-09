@@ -1,12 +1,12 @@
-name: Upload Python Package
+name: Upload Python Package to PypiTest
 
 on:
   pull_request:
     branches:
-      - main
+      - test
   push:
     branches:
-      - main
+      - test
 jobs:
   build:
     runs-on: ubuntu-latest

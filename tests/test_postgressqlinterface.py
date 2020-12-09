@@ -5,12 +5,8 @@ import pytest
 from dotenv import load_dotenv
 from postgressqlinterface.postgresqlinterface import PostgreSQL
 
-
-"""
-To be able to execute this test statements you need to provide a .env file with the url to connect to a database
-"""
-
-load_dotenv(dotenv_path='.env')
+if os.path.isfile('.env'):
+    load_dotenv(dotenv_path='.env')
 env_var = os.environ['DATABASE_URL']
 
 
@@ -91,3 +87,47 @@ def update():
 
 def test_execute_insert_update_query(update):
     assert update.all().all()
+
+
+###############################################################################################
+
+@pytest.fixture(scope='module')
+def delete():
+    heroku_db = PostgreSQL(env_var)
+    statement_create_table = """
+                            Drop table if exists test.simple; 
+                            drop schema if exists test;
+                            
+                            CREATE SCHEMA test
+                        
+                            create table test.simple (
+                                Id INT not null,
+                                Name VARCHAR(100) NOT NULL,
+                                Activated BOOLEAN not null,
+                                Date DATE NOT NULL
+                            )
+    """
+    heroku_db.execute(statement_create_table)
+
+    to_insert = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
+                                        'name': ['Mercedes', 'Toyota', 'Suzuki', 'BMW'],
+                                        'activated': [True, False, False, True],
+                                        'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
+                                                 dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
+    heroku_db.insert_table('test.simple', to_insert.copy())
+
+    to_delete = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
+                                        'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
+                                                 dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
+
+    heroku_db.delete_from_table('test.simple', to_delete, print_sql=True)
+
+    simple = heroku_db.query("SELECT * FROM test.simple")
+
+    yield simple
+
+    heroku_db.execute("Drop table test.simple; drop schema test")
+
+
+def test_delete_insert_update_query(delete):
+    assert delete.shape[0] == 0
