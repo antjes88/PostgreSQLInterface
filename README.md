@@ -7,7 +7,9 @@ to be able to interact with other cloud or premises providers that uses PosgresS
 to other RDBS the same way this one is inspired on the one to connect to SQLServer located on the library berryworld.   
 
 ## Structure
-The library has an unique class that handles the relations to a database allowing to load and extract data.
+The library has an unique class that handles the relations to a database allowing to load and extract data. Below, you
+can find a little introduction to all relevant methods. For more information, read the doc of the method
+or take a look to the tests in the repo.
 
 ## Instantiate the class
 To instantiate the class to connect to a Heroku Database:
@@ -28,17 +30,22 @@ my_table = heroku._db.query("SELECT * FROM test.data d JOIN test.references r ON
 ```
 
 ## Insert data
-To insert data into a table
+To insert data into a table:
 ```
 heroku_db.insert_table('test.simple', to_insert.copy())
 ```
 
 ## Update a table
-To insert data into a table
+To update data into a table:
 ```
 heroku_db.update_table('test.simple', to_update, ['id', 'date'])
 ```
 
+## Delete from table
+To delete from a table:
+```
+heroku_db.delete_from_table('test.simple', to_delete)
+```
 
 ## Execute a general statement
 To execute a general SQL statement you can use the method *execute*. This method returns no data. 

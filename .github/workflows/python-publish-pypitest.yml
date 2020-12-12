@@ -1,9 +1,9 @@
 name: Upload Python Package to PypiTest
 
 on:
-  pull_request:
-    branches:
-      - test
+#  pull_request: # it does a check on pull request
+#    branches:
+#      - test
   push:
     branches:
       - test

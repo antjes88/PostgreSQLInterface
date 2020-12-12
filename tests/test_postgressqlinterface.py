@@ -92,7 +92,7 @@ def test_execute_insert_update_query(update):
 ###############################################################################################
 
 @pytest.fixture(scope='module')
-def delete():
+def heroku_conn():
     heroku_db = PostgreSQL(env_var)
     statement_create_table = """
                             Drop table if exists test.simple; 
@@ -116,18 +116,24 @@ def delete():
                                                  dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
     heroku_db.insert_table('test.simple', to_insert.copy())
 
-    to_delete = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
-                                        'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
-                                                 dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
-
-    heroku_db.delete_from_table('test.simple', to_delete, print_sql=True)
-
-    simple = heroku_db.query("SELECT * FROM test.simple")
-
-    yield simple
+    yield heroku_db
 
     heroku_db.execute("Drop table test.simple; drop schema test")
 
 
-def test_delete_insert_update_query(delete):
-    assert delete.shape[0] == 0
+def test_delete_several_cols(heroku_conn):
+    to_delete = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
+                                        'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
+                                                 dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
+    heroku_conn.delete_from_table('test.simple', to_delete)
+    simple = heroku_conn.query("SELECT * FROM test.simple")
+
+    assert simple.shape[0] == 0
+
+
+def test_delete_one_col(heroku_conn):
+    to_delete = pd.DataFrame.from_dict({'id': [1, 2, 3, 4]})
+    heroku_conn.delete_from_table('test.simple', to_delete)
+    simple = heroku_conn.query("SELECT * FROM test.simple")
+
+    assert simple.shape[0] == 0
