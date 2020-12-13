@@ -1,4 +1,4 @@
-name: Upload Python Package to PypiTest
+name: Upload Python Package to Pypi
 
 on:
 #  pull_request:
