@@ -5,8 +5,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='postgresql-interface',
-    packages=find_packages(include=['postgressqlinterface']),
-    version='0.0.4',
+    packages=find_packages(include=['postgressql_interface']),
+    version='0.0.6',
     description='Library to load and extract data from a PosgreSQL Database '
                 'with Python with a simple SQL style language',
     long_description=long_description,
