@@ -94,6 +94,8 @@ class PostgreSQL:
         :param print_sql: boolean to indicate if sql statement must be print on python console
         :return:
         """
+        df.reset_index(drop=True, inplace=True)
+
         # Creation of Insert into and list of columns
         statement = 'INSERT INTO %s (' % table_name
         for col in df.columns.values.tolist():
@@ -213,6 +215,8 @@ class PostgreSQL:
         :param print_sql: boolean to indicate if sql statement must be print on python console
         :return:
         """
+        df.reset_index(drop=True, inplace=True)
+
         if df.shape[0] == 0:
             raise Exception("Please, provide a non-empty dataframe.")
 
