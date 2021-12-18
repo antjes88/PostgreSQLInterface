@@ -4,10 +4,7 @@ from abc import ABCMeta, abstractmethod
 import numbers
 
 
-class PostgreSQL:
-    """Connect and interact with a PostgreSQL database"""
-    __metaclass__ = ABCMeta
-
+class PostgreSQL(metaclass=ABCMeta):
     @staticmethod
     def close_connection(cursor, conn):
         """
@@ -276,8 +273,42 @@ class PostgresHeroku(PostgreSQL):
         return cursor, conn
 
 
+class PostgresGCP(PostgreSQL):
+    def __init__(self, host, database_name, user_name, user_password):
+        """
+        Initialisation of the class
+        :param host: connection to server
+        :param database_name: name of the database
+        :param user_name: name of a user with permission to connect and perform the desires operations on the database
+        :param user_password: password of the user
+        """
+        self.host = host
+        self.database = database_name
+        self.user = user_name
+        self.password = user_password
+
+    def create_connection(self):
+        """
+        Method to create a database connection to a Heroku-Amazon PostgreSQL database
+        :return: Connection object and cursor or None
+        """
+        cursor, conn = None, None
+
+        try:
+            conn = psycopg2.connect(host=self.host, database=self.database, user=self.user, password=self.password)
+            cursor = conn.cursor()
+
+        except psycopg2.Error as e:
+            self.close_connection(cursor, conn)
+            raise Exception(e)
+
+        return cursor, conn
+
+
 def postgres_factory(vendor, **kwargs):
     if vendor.upper() == 'HEROKU':
         return PostgresHeroku(**kwargs)
+    elif vendor.upper() == 'GCP':
+        return PostgresGCP(**kwargs)
     else:
         raise Exception('No valid vendor has been provided when instantiating the class.')

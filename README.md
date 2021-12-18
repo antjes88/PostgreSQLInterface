@@ -1,8 +1,8 @@
 # PostgreSQLInterface 
 ## Introduction
 This package allows to load and extract data from a PosgreSQL Database using simple SQL style methods. At the moment,
-only has been implemented for Heroku-Amazon Databases, though it should be easy to extent this package to interact with 
-other vendors as is it created following the Factory Pattern. 
+only has been implemented for Heroku-Amazon and GCP databases, though automated test is only performed over Heroku
+because of lack of resources. Extension to other vendors is easily achievable as the package follows the Factory Pattern. 
 
 ## Structure
 The library has a parent abstract class that contains the main methods, then a children class implements the 
@@ -17,6 +17,12 @@ heroku_db = postgres_factory(vendor='heroku', database_url=database_url)
 ```
 *database_url* can be found on the section *Config Vars* inside the tab *Settings* of your Heroku app or on the 
 section *Database Credentials* of the tab *Settings* of your Heroku Datastore.
+
+To connect to GCP postgres database:
+```
+heroku_db = postgres_factory(vendor='gcp', host=host, database_name=database_name, 
+                             user_name=user_name, user_password=user_password)
+```
 
 ## Read data from Database
 To retrieve a query from the database:
