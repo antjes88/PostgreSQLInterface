@@ -1,21 +1,13 @@
-import os
+import pandas as pd
 import numpy as np
 import datetime as dt
 import pytest
-from dotenv import load_dotenv
-from postgresql_interface.postgresql_interface import *
+from postgresql_interface.postgresql_interface import postgres_sql_connector_factory
 
 
-@pytest.fixture(scope='session')
-def create_env_variables():
-    if os.path.isfile('.env'):
-        load_dotenv(dotenv_path='.env')
-    return os.environ['DATABASE_URL']
-
-
-@pytest.fixture(scope='module')
-def execute_insert_query(create_env_variables):
-    heroku_db = postgres_factory(vendor='heroku', database_url=create_env_variables)
+@pytest.fixture(scope='function')
+def execute_insert_query(create_env_variables_heroku):
+    heroku_db = postgres_sql_connector_factory(vendor='heroku', database_url=create_env_variables_heroku)
     statement_create_table = """
                             Drop table if exists test.simple; 
                             drop schema if exists test;
@@ -35,10 +27,11 @@ def execute_insert_query(create_env_variables):
                                         'activated': [True, False, False, True],
                                         'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
                                                  dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
+    heroku_db.SQLWriter.create_insert_table_statement('test.simple', to_insert.copy())
     heroku_db.insert_table('test.simple', to_insert.copy())
     simple = heroku_db.query("SELECT * FROM test.simple")
 
-    yield to_insert.sort_index().sort_index(axis=1) == simple.sort_index().sort_index(axis=1)
+    yield to_insert, simple
 
     heroku_db.execute("Drop table if exists test.simple; drop schema if exists test")
 
@@ -51,15 +44,15 @@ def test_execute_insert_query(execute_insert_query):
     :param execute_insert_query: fixture above
     :return:
     """
-    assert execute_insert_query.all().all()
+    assert execute_insert_query[0].equals(execute_insert_query[1])
 
 
 ####################################################################################
 
 
-@pytest.fixture(scope='module')
-def update(create_env_variables):
-    heroku_db = postgres_factory(vendor='heroku', database_url=create_env_variables)
+@pytest.fixture(scope='function')
+def update(create_env_variables_heroku):
+    heroku_db = postgres_sql_connector_factory(vendor='heroku', database_url=create_env_variables_heroku)
     statement_create_table = """
                             Drop table if exists test.simple; 
                             drop schema if exists test;
@@ -78,8 +71,8 @@ def update(create_env_variables):
     to_insert = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
                                         'name': ['Mercedes', 'Toyota', 'Suzuki', 'BMW'],
                                         'activated': [True, False, False, True],
-                                        'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
-                                                 dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
+                                        'date': [dt.datetime(2020, 1, 1), dt.date(2020, 2, 2),
+                                                 dt.datetime(2020, 3, 3), dt.date(2020, 4, 4)]})
     heroku_db.insert_table('test.simple', to_insert.copy())
 
     to_update = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
@@ -87,10 +80,10 @@ def update(create_env_variables):
                                         'activated': [False, True, True, False],
                                         'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
                                                  dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
-    heroku_db.update_table('test.simple', to_update, ['id', 'date'])
+    heroku_db.update_table('test.simple', to_update, ['Id', 'Date'])
 
     simple = heroku_db.query("SELECT * FROM test.simple")
-    yield to_update.sort_index().sort_index(axis=1) == simple.sort_index().sort_index(axis=1)
+    yield to_update, simple
 
     heroku_db.execute("Drop table if exists test.simple; drop schema if exists test")
 
@@ -103,13 +96,13 @@ def test_execute_insert_update_query(update):
     :param update: fixture above
     :return:
     """
-    assert update.all().all()
+    assert update[0].equals(update[1])
 
 
 ###############################################################################################
 @pytest.fixture(scope='function')
-def heroku_conn(create_env_variables):
-    heroku_db = postgres_factory(vendor='heroku', database_url=create_env_variables)
+def heroku_conn(create_env_variables_heroku):
+    heroku_db = postgres_sql_connector_factory(vendor='heroku', database_url=create_env_variables_heroku)
     statement_create_table = """
                             Drop table if exists test.simple; 
                             drop schema if exists test;
@@ -128,7 +121,7 @@ def heroku_conn(create_env_variables):
     to_insert = pd.DataFrame.from_dict({'id': [1, 2, 3, 4],
                                         'name': ['Mercedes', np.nan, 'Suzuki', 'BMW'],
                                         'activated': [True, False, False, True],
-                                        'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2),
+                                        'date': [dt.datetime(2020, 1, 1), dt.datetime(2020, 2, 2),
                                                  dt.date(2020, 3, 3), dt.date(2020, 4, 4)]})
     heroku_db.insert_table('test.simple', to_insert.copy())
 
@@ -189,8 +182,7 @@ def test_truncate_true(heroku_conn):
                                         'date': [dt.date(2020, 1, 1), dt.date(2020, 2, 2)]})
     heroku_conn.insert_table('test.simple', to_insert.copy(), truncate=True)
     simple = heroku_conn.query("SELECT * FROM test.simple")
-    result = to_insert.sort_index().sort_index(axis=1) == simple.sort_index().sort_index(axis=1)
 
     # first assert is to make sure that actually there is something before truncating the table
     assert n_rows > 0
-    assert result.all().all()
+    assert to_insert.equals(simple)

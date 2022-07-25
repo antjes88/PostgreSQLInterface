@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name='postgresql-interface',
     packages=find_packages(include=['postgresql_interface']),
-    version='1.0.0',
+    version='1.0.1',
     description='Library to load and extract data from a PosgreSQL Database '
                 'with Python with a simple SQL style language',
     long_description=long_description,
@@ -14,8 +14,8 @@ setup(
     author='Antonio Benjumea',
     license='MIT',
     install_requires=[
-        'numpy==1.18.1',
-        'pandas==0.25.3',
+        'numpy==1.23.1',
+        'pandas==1.1.5',
         'psycopg2-binary==2.8.5'
     ],
     setup_requires=['pytest-runner'],

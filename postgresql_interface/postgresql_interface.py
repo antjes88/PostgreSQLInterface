@@ -1,14 +1,25 @@
 import psycopg2
 import pandas as pd
 from abc import ABCMeta, abstractmethod
-import numbers
+from postgresql_interface.sql_writer import SQLWriter
+import warnings
 
 
-class PostgreSQL(metaclass=ABCMeta):
+class PostgresSQLConnector(metaclass=ABCMeta):
+    """
+    Abstract Class to use as base for an API to interact with PostgreSQL databases at different platforms.
+
+    To use it, you will need to overwrite the create_connection() method on your child class.
+    """
     @staticmethod
     def close_connection(cursor, conn):
         """
-        Method to close a database connection to a PostgreSQL database
+        Method to close a database connection to a PostgreSQL database.
+
+        Args:
+            cursor: Allows Python code to execute PostgreSQL command in a database session.
+                class Cursor from psycopg2
+            conn: handles connection to a PostgreSQL database. class Connection from psycopg2
         """
         if cursor:
             cursor.close()
@@ -19,15 +30,29 @@ class PostgreSQL(metaclass=ABCMeta):
     def create_connection(self):
         """
         Method to create a database connection to a PostgreSQL database
-        :return: Connection object and cursor or None
+
+        Raises:
+            NotImplementedError: Must be overridden on children class
         """
         NotImplementedError("Must be overridden on children class")
 
+    class SQLWriter(SQLWriter):
+        pass
+
     def query(self, statement):
         """
-        Method to retrieve data from a table.
-        :param statement: sql statement
-        :return: df: dataframe of the sql
+        Retrieves data from a sql statement as a Pandas dataframe.
+        It handles transactions with databases. It handles full connection life with the database and ensures that
+        connection is closed at the end no matter if the query was successful or unsuccessful.
+
+        Args:
+            statement: sql statement to evaluate at database. Must be a str.
+
+        Returns:
+            dataframe resulting from query to database.
+
+        Raises:
+            psycopg2.Error: in case of a problem handling query to database.
         """
         conn, cursor, error = None, None, None
         df = pd.DataFrame()
@@ -46,8 +71,16 @@ class PostgreSQL(metaclass=ABCMeta):
 
     def execute(self, statement):
         """
-        Execute a sql statement in database
-        param execute: parameter to execute
+        Execute a sql statement in database.
+        Transaction is fully handle by the method. The strategy is that transaction is only committed if all statement
+        execution is successful. It handles full connection life with the database and ensures that
+        connection is closed at the end no matter if the query was successful or unsuccessful.
+
+        Args:
+            statement: sql statement with SQL to be executed at database. Must be a str.
+
+        Raises:
+            psycopg2.Error: in case of a problem handling query to database.
         """
         conn, cursor, error = None, None, None
         try:
@@ -61,7 +94,7 @@ class PostgreSQL(metaclass=ABCMeta):
             if error:
                 raise Exception(error)
 
-    def insert_table(self, table_name, df, print_sql=False, truncate=False):
+    def insert_table(self, table_name, df, print_sql=False, truncate=False, sql_injection_check_enabled=True):
         """
         This method is to insert new values in a table. It is able to manage insertion of null values.
 
@@ -73,48 +106,27 @@ class PostgreSQL(metaclass=ABCMeta):
                        .
                        (df.loc[n, column[0]], df.loc[n, column[1]], ... df.loc[n, column[n]]);
 
-        :param table_name: name of the table where data is going to be inserted, it must include the schema
-        :param df: dataframe of values to insert into the table
-        :param print_sql: boolean to indicate if sql statement must be print on python console
-        :param truncate: before inserting data into a table, it is truncated
-        :return:
+        Args:
+            table_name: name of the table where data is going to be inserted, it must include the table schema.
+            df: dataframe of values to insert into the table.
+            print_sql: boolean to indicate if sql statement must be print on python console.
+            truncate: before inserting data into a table, it is truncated.
+            sql_injection_check_enabled: allows to disable SQL Injection check.
+
+        Raises:
+            psycopg2.Error: in case of a problem handling query to database.
         """
-        df.reset_index(drop=True, inplace=True)
+        if (df.shape[0] == 0) & (df.columns.to_list().__len__() > 0):
+            warnings.warn("Dataframe provided to insert into %s is empty." % table_name)
 
-        # Creation of Insert into and list of columns
-        if truncate:
-            statement = 'TRUNCATE TABLE %s; ' % table_name
         else:
-            statement = ''
+            statement = self.SQLWriter.create_insert_table_statement(
+                table_name, df, truncate, sql_injection_check_enabled=sql_injection_check_enabled)
+            if print_sql:
+                print(statement)
+            self.execute(statement)
 
-        statement += 'INSERT INTO %s (' % table_name
-        for col in df.columns.values.tolist():
-            statement += ' %s,' % col
-        statement = statement[:-1] + ') VALUES '
-
-        # this is for nan detection to input NULL values
-        nan_df = df.isna()
-
-        # creation of insert statements
-        for iindex in df.index.values.tolist():
-            statement += ' ('
-            for value in df.columns.values.tolist():
-                if nan_df.loc[iindex, value]:
-                    statement += " NULL,"
-                elif isinstance(df.loc[iindex, value], numbers.Number):
-                    statement += " %s," % df.loc[iindex, value]
-                else:
-                    statement += " '%s'," % df.loc[iindex, value]
-            statement = statement[:-1] + '),'
-
-        statement = statement[:-1] + ';'
-
-        if print_sql:
-            print(statement)
-
-        self.execute(statement)
-
-    def update_table(self, table_name, df, where_identifier, print_sql=False):
+    def update_table(self, table_name, df, where_identifier, print_sql=False, sql_injection_check_enabled=True):
         """
         This method is to update values in a table taking into account the where_identifier. It creates one UPDATE
         statement for each row in df.
@@ -146,46 +158,31 @@ class PostgreSQL(metaclass=ABCMeta):
                       .
                       where_identifier[n] = df.loc[n, where_identifier[n]];
 
-        :param table_name: name of the table to update included schema
-        :param df: dataframe with the data to update in the table
-        :param where_identifier: list of columns to list on the where clause
-        :param print_sql: boolean to indicate if sql statement must be print on python console
-        :return:
+        Args:
+            table_name: name of the table to update included schema.
+            df: dataframe with the data to update in the table.
+            where_identifier: list of columns to list on the where clause.
+            print_sql: boolean to indicate if sql statement must be print on python console.
+            sql_injection_check_enabled: allows to disable SQL Injection check.
+
+        Raises:
+            psycopg2.Error: in case of a problem handling query to database.
         """
-        df.reset_index(drop=True, inplace=True)
+        if (df.shape[0] == 0) & (df.columns.to_list().__len__() > 0):
+            warnings.warn("Dataframe provided to insert into %s is empty." % table_name)
 
-        # this is for nan detection to input NULL values
-        nan_df = df.isna()
+        elif len([col for col in df.columns if col.upper() not in [col.upper() for col in where_identifier]]) <= 0:
+            raise Exception(
+                "Cannot create update operation on table %s as there are no columns to update" % table_name)
 
-        # creation of the sql statement
-        statement = ''
-        for i in df.index.values.tolist():
-            statement += ' UPDATE %s SET ' % table_name
-            for col in [col_y for col_y in df.columns.values.tolist() if col_y not in where_identifier]:
-                statement += " %s = " % col
-                if nan_df.loc[i, col]:
-                    statement += " NULL,"
-                else:
-                    statement += " '%s'," % (df.loc[i, col])
+        else:
+            statement = self.SQLWriter.create_update_table_statement(
+                table_name, df.copy(), where_identifier, sql_injection_check_enabled=sql_injection_check_enabled)
+            if print_sql:
+                print(statement)
+            self.execute(statement)
 
-            statement = statement[:-1] + " WHERE "
-
-            for j in range(0, len(where_identifier)):
-                if j > 0:
-                    statement += ' AND '
-                statement += " %s = " % where_identifier[j]
-                if nan_df.loc[i, where_identifier[j]]:
-                    statement += " NULL "
-                else:
-                    statement += " '%s' " % (df.loc[i, where_identifier[j]])
-            statement += '; '
-
-        if print_sql:
-            print(statement)
-
-        self.execute(statement)
-
-    def delete_from_table(self, table_name, df, print_sql=False):
+    def delete_from_table(self, table_name, df, print_sql=False, sql_injection_check_enabled=True):
         """
         Method to delete rows from a table. It deletes rows from table_name based on the where clause created with
         values and columns of df.
@@ -201,64 +198,47 @@ class PostgreSQL(metaclass=ABCMeta):
                 DELETE FROM table_name  WHERE df.column[0] == 'df.loc[n, column[0]]'......
                                             AND df.column[n] == 'df.loc[n, column[n]]';
 
-        clause
-        :param table_name: name of the table to update included schema
-        :param df: dataframe with the columns of the table to be included on the where clause
-        :param print_sql: boolean to indicate if sql statement must be print on python console
-        :return:
+        Args:
+            table_name: name of the table to update included schema.
+            df: dataframe with the columns of the table to be included on the where clause.
+            print_sql: boolean to indicate if sql statement must be print on python console.
+            sql_injection_check_enabled: allows to disable SQL Injection check.
+
+        Raises:
+            psycopg2.Error: in case of a problem handling query to database.
         """
-        df.reset_index(drop=True, inplace=True)
-
-        if df.shape[0] == 0:
-            raise Exception("Please, provide a non-empty dataframe.")
-
-        elif len(df.columns.to_list()) == 1:
-            col = df.columns.to_list()[0]
-            nan_df = df.isna()
-            statement = 'DELETE FROM %s WHERE %s IN (' % (table_name, col)
-            for i in df.index.values.tolist():
-                if nan_df.loc[i, col]:
-                    statement += " NULL,"
-                else:
-                    statement += " '%s'," % (df.loc[i, col])
-            statement = statement[:-1] + ')'
+        if (df.shape[0] == 0) & (df.columns.to_list().__len__() > 0):
+            warnings.warn("Dataframe provided to insert into %s is empty." % table_name)
 
         else:
-            nan_df = df.isna()
-            cols = df.columns.to_list()
-            statement = ''
-            for i in df.index.values.tolist():
-                statement += ' DELETE FROM %s WHERE ' % table_name
-                for j in range(0, len(cols)):
-                    if j > 0:
-                        statement += ' AND '
-                    statement += " %s = " % cols[j]
-                    if nan_df.loc[i, cols[j]]:
-                        statement += " NULL "
-                    else:
-                        statement += " '%s' " % (df.loc[i, cols[j]])
-                statement += '; '
-
-        if print_sql:
-            print(statement)
-
-        self.execute(statement)
+            statement = self.SQLWriter.create_delete_from_table_statement(
+                table_name, df, sql_injection_check_enabled=sql_injection_check_enabled)
+            if print_sql:
+                print(statement)
+            self.execute(statement)
 
 
-class PostgresHeroku(PostgreSQL):
+class PostgresHeroku(PostgresSQLConnector):
+    """
+    API to interact with PostgreSQL databases at different platforms.
+
+    Args:
+        database_url: connection to database. It has next schema:
+            postgres://{user_name}:{password}@{host_name}:{port_number}/{database_name}
+            you can find it in your Heroku datastore settings. Database credentials -> URI
+        ssl_mode: ssl_mode
+    """
     def __init__(self, database_url, ssl_mode='require'):
-        """
-        Initialisation of the class
-        :param database_url: connection to database
-        :param ssl_mode: ssl_mode
-        """
+        self.vendor = 'Heroku'
         self.database_url = database_url
         self.sslmode = ssl_mode
 
     def create_connection(self):
         """
         Method to create a database connection to a Heroku-Amazon PostgreSQL database
-        :return: Connection object and cursor or None
+
+        Raises:
+            psycopg2.Error: in case of a problem handling query to database.
         """
         cursor, conn = None, None
 
@@ -272,43 +252,69 @@ class PostgresHeroku(PostgreSQL):
 
         return cursor, conn
 
+    def __repr__(self):
+        return 'PostgresHeroku({database_url}, "' + self.sslmode + '")'
 
-class PostgresGCP(PostgreSQL):
-    def __init__(self, host, database_name, user_name, user_password):
-        """
-        Initialisation of the class
-        :param host: connection to server
-        :param database_name: name of the database
-        :param user_name: name of a user with permission to connect and perform the desires operations on the database
-        :param user_password: password of the user
-        """
-        self.host = host
-        self.database = database_name
-        self.user = user_name
-        self.password = user_password
+    def __str__(self):
+        return 'API to interact with a Heroku PostgresSQL database using simple SQL style methods'
 
-    def create_connection(self):
-        """
-        Method to create a database connection to a Heroku-Amazon PostgreSQL database
-        :return: Connection object and cursor or None
-        """
-        cursor, conn = None, None
+# class PostgresGCP(PostgresSQLConnector):
+#     def __init__(self, host, database_name, user_name, user_password):
+#         """
+#         Initialisation of the class
+#         :param host: connection to server
+#         :param database_name: name of the database
+#         :param user_name: name of a user with permission to connect and perform the desires operations on the database
+#         :param user_password: password of the user
+#         """
+#         self.vendor = 'GCP'
+#         self.host = host
+#         self.database = database_name
+#         self.user = user_name
+#         self.password = user_password
+#
+#     def create_connection(self):
+#         """
+#         Method to create a database connection to a Heroku-Amazon PostgreSQL database
+#         :return: Connection object and cursor or None
+#         """
+#         cursor, conn = None, None
+#
+#         try:
+#             conn = psycopg2.connect(host=self.host, database=self.database, user=self.user, password=self.password)
+#             cursor = conn.cursor()
+#
+#         except psycopg2.Error as e:
+#             self.close_connection(cursor, conn)
+#             raise Exception(e)
+#
+#         return cursor, conn
 
-        try:
-            conn = psycopg2.connect(host=self.host, database=self.database, user=self.user, password=self.password)
-            cursor = conn.cursor()
 
-        except psycopg2.Error as e:
-            self.close_connection(cursor, conn)
-            raise Exception(e)
+def postgres_sql_connector_factory(vendor, **kwargs):
+    """
+    Factory method that returns the right API given the provided vendor.
 
-        return cursor, conn
+    Example of use:
+    ```
+    from postgresql_interface.postgresql_interface import postgres_sql_connector_factory
+    db_conn = postgres_sql_connector_factory(vendor='heroku', database_url=database_url)
+    ```
 
+    Args:
+        vendor: name of the cloud vendor. Must be a str.
+        **kwargs: named arguments to be passed to the API sql database.
 
-def postgres_factory(vendor, **kwargs):
+    Returns:
+        depending on vendor:
+            - Heroku: object of class PostgresHeroku
+
+    Raises:
+        ValueError: if the vendor is not yet implemented
+    """
     if vendor.upper() == 'HEROKU':
         return PostgresHeroku(**kwargs)
-    elif vendor.upper() == 'GCP':
-        return PostgresGCP(**kwargs)
+    # elif vendor.upper() == 'GCP':
+    #     return PostgresGCP(**kwargs)
     else:
-        raise Exception('No valid vendor has been provided when instantiating the class.')
+        raise ValueError('No valid vendor has been provided when instantiating the class.')
