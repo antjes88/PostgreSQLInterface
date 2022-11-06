@@ -258,37 +258,41 @@ class PostgresHeroku(PostgresSQLConnector):
     def __str__(self):
         return 'API to interact with a Heroku PostgresSQL database using simple SQL style methods'
 
-# class PostgresGCP(PostgresSQLConnector):
-#     def __init__(self, host, database_name, user_name, user_password):
-#         """
-#         Initialisation of the class
-#         :param host: connection to server
-#         :param database_name: name of the database
-#         :param user_name: name of a user with permission to connect and perform the desires operations on the database
-#         :param user_password: password of the user
-#         """
-#         self.vendor = 'GCP'
-#         self.host = host
-#         self.database = database_name
-#         self.user = user_name
-#         self.password = user_password
-#
-#     def create_connection(self):
-#         """
-#         Method to create a database connection to a Heroku-Amazon PostgreSQL database
-#         :return: Connection object and cursor or None
-#         """
-#         cursor, conn = None, None
-#
-#         try:
-#             conn = psycopg2.connect(host=self.host, database=self.database, user=self.user, password=self.password)
-#             cursor = conn.cursor()
-#
-#         except psycopg2.Error as e:
-#             self.close_connection(cursor, conn)
-#             raise Exception(e)
-#
-#         return cursor, conn
+
+class PostgresGCP(PostgresSQLConnector):
+    def __init__(self, host, database_name, user_name, user_password, port):
+        """
+        Initialisation of the class
+        :param host: connection to server
+        :param database_name: name of the database
+        :param user_name: name of a user_name with permission to connect and perform the desires operations on the database
+        :param user_password: password of the user_name
+        :param port: connection port number
+        """
+        self.vendor = 'GCP'
+        self.host = host
+        self.database = database_name
+        self.user = user_name
+        self.password = user_password
+        self.port = port
+
+    def create_connection(self):
+        """
+        Method to create a database connection to a Heroku-Amazon PostgreSQL database
+        :return: Connection object and cursor or None
+        """
+        cursor, conn = None, None
+
+        try:
+            conn = psycopg2.connect(
+                host=self.host, database=self.database, user=self.user, password=self.password, port=self.port)
+            cursor = conn.cursor()
+
+        except psycopg2.Error as e:
+            self.close_connection(cursor, conn)
+            raise Exception(e)
+
+        return cursor, conn
 
 
 def postgres_sql_connector_factory(vendor, **kwargs):
@@ -314,7 +318,7 @@ def postgres_sql_connector_factory(vendor, **kwargs):
     """
     if vendor.upper() == 'HEROKU':
         return PostgresHeroku(**kwargs)
-    # elif vendor.upper() == 'GCP':
-    #     return PostgresGCP(**kwargs)
+    elif vendor.upper() == 'GCP':
+        return PostgresGCP(**kwargs)
     else:
         raise ValueError('No valid vendor has been provided when instantiating the class.')

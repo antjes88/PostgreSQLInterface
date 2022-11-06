@@ -1,9 +1,9 @@
 name: Upload Python Package to Pypi
 
 on:
-#  pull_request:
-#    branches:
-#      - main
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -28,6 +28,11 @@ jobs:
       - name: Test with pytest
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          HOST: ${{ secrets.HOST }}
+          DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+          USER_NAME: ${{ secrets.USER_NAME }}
+          USER_PASSWORD: ${{ secrets.USER_PASSWORD }}
+          PORT: ${{ secrets.PORT }}
         run: |
           python -m pytest --tb=no
 
