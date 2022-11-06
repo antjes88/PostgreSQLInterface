@@ -15,6 +15,10 @@ jobs:
         python-version: ['3.8', '3.9']
       max-parallel: 1   # they are using the same database that should be access sequentially,
     steps:
+      - uses: mattes/gce-cloudsql-proxy-action@v1
+        with:
+          creds: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          instance: ${{ secrets.INSTANCE }}
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
