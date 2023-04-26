@@ -34,7 +34,7 @@ class PostgresSQLConnector(metaclass=ABCMeta):
         Raises:
             NotImplementedError: Must be overridden on children class
         """
-        NotImplementedError("Must be overridden on children class")
+        raise NotImplementedError("Must be overridden on children class")
 
     class SQLWriter(SQLWriter):
         pass
@@ -52,20 +52,17 @@ class PostgresSQLConnector(metaclass=ABCMeta):
             dataframe resulting from query to database.
 
         Raises:
-            psycopg2.Error: in case of a problem handling query to database.
+            Exception: in case of a problem handling query to database.
         """
         conn, cursor, error = None, None, None
-        df = pd.DataFrame()
         try:
             cursor, conn = self.create_connection()
             df = pd.read_sql_query(statement, conn)
-
-        except psycopg2.Error as e:
-            error = e
-        finally:
             self.close_connection(cursor, conn)
-            if error:
-                raise Exception(error)
+
+        except Exception:
+            self.close_connection(cursor, conn)
+            raise
 
         return df
 
@@ -80,19 +77,18 @@ class PostgresSQLConnector(metaclass=ABCMeta):
             statement: sql statement with SQL to be executed at database. Must be a str.
 
         Raises:
-            psycopg2.Error: in case of a problem handling query to database.
+            Exception: in case of a problem handling query to database.
         """
         conn, cursor, error = None, None, None
         try:
             cursor, conn = self.create_connection()
             cursor.execute(statement)
             conn.commit()
-        except psycopg2.Error as e:
-            error = e
-        finally:
             self.close_connection(cursor, conn)
-            if error:
-                raise Exception(error)
+
+        except Exception:
+            self.close_connection(cursor, conn)
+            raise
 
     def insert_table(self, table_name, df, print_sql=False, truncate=False, sql_injection_check_enabled=True):
         """
@@ -114,7 +110,7 @@ class PostgresSQLConnector(metaclass=ABCMeta):
             sql_injection_check_enabled: allows to disable SQL Injection check.
 
         Raises:
-            psycopg2.Error: in case of a problem handling query to database.
+            Exception: in case of a problem handling query to database.
         """
         if (df.shape[0] == 0) & (df.columns.to_list().__len__() > 0):
             warnings.warn("Dataframe provided to insert into %s is empty." % table_name)
@@ -166,7 +162,7 @@ class PostgresSQLConnector(metaclass=ABCMeta):
             sql_injection_check_enabled: allows to disable SQL Injection check.
 
         Raises:
-            psycopg2.Error: in case of a problem handling query to database.
+            Exception: in case of a problem handling query to database.
         """
         if (df.shape[0] == 0) & (df.columns.to_list().__len__() > 0):
             warnings.warn("Dataframe provided to insert into %s is empty." % table_name)
@@ -205,7 +201,7 @@ class PostgresSQLConnector(metaclass=ABCMeta):
             sql_injection_check_enabled: allows to disable SQL Injection check.
 
         Raises:
-            psycopg2.Error: in case of a problem handling query to database.
+            Exception: in case of a problem handling query to database.
         """
         if (df.shape[0] == 0) & (df.columns.to_list().__len__() > 0):
             warnings.warn("Dataframe provided to insert into %s is empty." % table_name)
@@ -238,17 +234,18 @@ class PostgresHeroku(PostgresSQLConnector):
         Method to create a database connection to a Heroku-Amazon PostgreSQL database
 
         Raises:
-            psycopg2.Error: in case of a problem handling query to database.
+            Exception: in case of a problem handling query to database.
         """
         cursor, conn = None, None
 
         try:
             conn = psycopg2.connect(self.database_url, sslmode=self.sslmode)
             cursor = conn.cursor()
-
-        except psycopg2.Error as e:
             self.close_connection(cursor, conn)
-            raise Exception(e)
+
+        except Exception:
+            self.close_connection(cursor, conn)
+            raise
 
         return cursor, conn
 
@@ -265,7 +262,8 @@ class PostgresGCP(PostgresSQLConnector):
         Initialisation of the class
         :param host: connection to server
         :param database_name: name of the database
-        :param user_name: name of a user_name with permission to connect and perform the desires operations on the database
+        :param user_name: name of a user_name with permission to connect and perform the desires operations on
+                          the database
         :param user_password: password of the user_name
         :param port: connection port number
         """
@@ -287,10 +285,11 @@ class PostgresGCP(PostgresSQLConnector):
             conn = psycopg2.connect(
                 host=self.host, database=self.database, user=self.user, password=self.password, port=self.port)
             cursor = conn.cursor()
-
-        except psycopg2.Error as e:
             self.close_connection(cursor, conn)
-            raise Exception(e)
+
+        except Exception:
+            self.close_connection(cursor, conn)
+            raise
 
         return cursor, conn
 
